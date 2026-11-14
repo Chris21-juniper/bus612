@@ -202,7 +202,7 @@ function zeichne() {
     haupt.classList.add("unterwegs");
     tipp.hidden = false; tipp.className = "tipp";
     tipp.textContent = zustand.richtung === "heim"
-      ? `Unterwegs · zu Hause ca. ${uhr(a.an + CFG.gehzeit * MIN)}`
+      ? `Unterwegs · zu Hause ca. ${uhr(a.an + (CFG.gehzeit + f.fussNach) * MIN)}`
       : `Unterwegs · Ankunft ${uhr(a.an)}${fussWeg}`;
   } else {
     $("cd-zahl").textContent = "✓"; $("cd-einheit").textContent = "";
