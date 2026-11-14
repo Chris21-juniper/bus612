@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b5cad"/>
+  <g transform="translate(96 70) scale(13.3)" fill="#fff">
+    <path d="M5 4.5C5 3 6.5 2 12 2s7 1 7 2.5V17a1 1 0 0 1-1 1v1.5a1 1 0 0 1-2 0V18H8v1.5a1 1 0 0 1-2 0V18a1 1 0 0 1-1-1V4.5ZM7 6v5h10V6H7Zm1 7.3a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Zm8 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4Z"/>
+  </g>
+  <text x="256" y="440" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size="104" fill="#fff">612</text>
+</svg>

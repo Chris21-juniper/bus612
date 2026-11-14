@@ -1,0 +1,113 @@
+:root {
+  --blau: #0b5cad;
+  --blau-hell: #e7f0fb;
+  --hg: #f2f4f7;
+  --karte: #ffffff;
+  --text: #15202b;
+  --text-2: #5b6876;
+  --gruen: #1a8a4a;
+  --gelb: #c98a00;
+  --rot: #c62828;
+  --orange: #e8590c;
+  --rand: rgba(0, 0, 0, .08);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hg: #0e1116; --karte: #1a1f27; --text: #eef2f6; --text-2: #9aa7b4;
+    --blau-hell: #16283d; --rand: rgba(255, 255, 255, .08);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--hg); color: var(--text); }
+body {
+  font: 16px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-tap-highlight-color: transparent;
+}
+main { max-width: 560px; margin: 0 auto; padding: 0 14px 18px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* Richtung */
+.kopf { position: sticky; top: 0; z-index: 1000; background: var(--hg); padding: 10px 14px 8px; }
+.richtung { max-width: 532px; margin: 0 auto; display: flex; background: var(--karte); border-radius: 12px; padding: 3px;
+            box-shadow: 0 0 0 1px var(--rand); }
+.richtung button { flex: 1; border: 0; background: none; padding: 9px; border-radius: 9px; font-weight: 600; color: var(--text-2); }
+.richtung button.aktiv { background: var(--blau); color: #fff; }
+
+/* Grosse Karte mit Countdown */
+.karte-gross { background: var(--karte); border-radius: 20px; padding: 16px 18px; box-shadow: 0 0 0 1px var(--rand);
+               transition: background .3s; }
+.zeile-oben { display: flex; align-items: center; gap: 10px; }
+.linie { background: var(--blau); color: #fff; font-weight: 800; border-radius: 7px; padding: 2px 8px; font-size: 15px; }
+.strecke-text { color: var(--text-2); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.countdown { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; }
+.cd-zahl { font-size: 76px; font-weight: 800; letter-spacing: -2px; line-height: 1; font-variant-numeric: tabular-nums; }
+.cd-einheit { font-size: 26px; font-weight: 700; color: var(--text-2); }
+.cd-text { font-size: 17px; font-weight: 600; margin-top: 4px; min-height: 1.4em; }
+.zeile-unten { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.zeiten { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pille { font-size: 14px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--hg); }
+.pille.gruen { background: #def5e7; color: var(--gruen); }
+.pille.gelb { background: #fff2cc; color: #8a5d00; }
+.pille.rot { background: #fde0e0; color: var(--rot); }
+.pille.grau { color: var(--text-2); }
+@media (prefers-color-scheme: dark) {
+  .pille.gruen { background: #123d26; color: #6fdc9b; }
+  .pille.gelb { background: #3d3010; color: #ffd166; }
+  .pille.rot { background: #4a1616; color: #ff8a80; }
+}
+.tipp { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--blau-hell); font-weight: 700; font-size: 17px; }
+.tipp.bald { background: #fff2cc; color: #6b4800; }
+.tipp.jetzt { background: var(--gruen); color: #fff; font-size: 20px; }
+.tipp.knapp { background: var(--orange); color: #fff; font-size: 20px; }
+.karte-gross.jetzt { box-shadow: 0 0 0 3px var(--gruen); }
+.karte-gross.knapp { box-shadow: 0 0 0 3px var(--orange); }
+
+/* Auswahl der Busse */
+.fahrten { display: flex; gap: 8px; margin: 12px 0; overflow-x: auto; scrollbar-width: none; }
+.fahrten::-webkit-scrollbar { display: none; }
+.fahrt { border: 0; background: var(--karte); box-shadow: 0 0 0 1px var(--rand); border-radius: 12px; padding: 8px 14px;
+         font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; display: flex; flex-direction: column;
+         align-items: center; min-width: 74px; }
+.fahrt em { font-style: normal; color: var(--rot); font-size: 13px; }
+.fahrt small { font-weight: 600; font-size: 11px; color: var(--text-2); }
+.fahrt.aktiv { background: var(--blau); color: #fff; box-shadow: none; }
+.fahrt.aktiv em, .fahrt.aktiv small { color: #fff; }
+
+/* Karte */
+.kartenbox { position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 0 0 1px var(--rand); }
+#karte { height: 46vh; min-height: 300px; background: #dfe6ec; }
+.folgen { position: absolute; right: 10px; bottom: 10px; z-index: 500; width: 44px; height: 44px; border-radius: 50%;
+          border: 0; background: var(--karte); font-size: 22px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.folgen[aria-pressed="true"] { color: var(--blau); }
+.linie-fahrt { stroke: var(--blau); stroke-linecap: round; stroke-linejoin: round; }
+.linie-anfahrt { stroke: #7a8a9a; stroke-dasharray: 2 9; stroke-linecap: round; }
+.halt { stroke: var(--blau); fill: #fff; fill-opacity: 1; }
+.halt-meine { stroke: var(--blau); fill: #fff; fill-opacity: 1; }
+.halt-name { font-weight: 600; }
+.bus-marker .bus { position: absolute; inset: 4px; border-radius: 50%; background: var(--blau); color: #fff;
+                   display: grid; place-items: center; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.bus-marker .bus svg { width: 18px; height: 18px; }
+.bus-marker.live .puls { position: absolute; inset: -6px; border-radius: 50%; background: var(--blau); opacity: .35;
+                         animation: puls 1.8s ease-out infinite; }
+@keyframes puls { from { transform: scale(.6); opacity: .5; } to { transform: scale(1.4); opacity: 0; } }
+
+/* Haltestellen */
+.haltestellen { background: var(--karte); border-radius: 16px; margin-top: 12px; box-shadow: 0 0 0 1px var(--rand); }
+.haltestellen summary { padding: 12px 16px; font-weight: 700; cursor: pointer; }
+.haltestellen ol { list-style: none; margin: 0; padding: 0 16px 12px 16px; }
+.haltestellen li { display: flex; gap: 12px; padding: 5px 0 5px 18px; position: relative; font-variant-numeric: tabular-nums; }
+.haltestellen li::before { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 3px; background: var(--blau); }
+.haltestellen li::after { content: ""; position: absolute; left: 0; top: 11px; width: 9px; height: 9px; border-radius: 50%;
+                          background: var(--karte); border: 2px solid var(--blau); box-sizing: border-box; }
+.haltestellen li.vorbei { color: var(--text-2); }
+.haltestellen li.vorbei::before { background: #9aa7b4; }
+.haltestellen li.meine { font-weight: 700; }
+.haltestellen li.hier::after { background: var(--blau); width: 13px; height: 13px; left: -2px; top: 9px; }
+.haltestellen .t { width: 92px; flex: none; }
+.haltestellen em { font-style: normal; color: var(--rot); }
+
+.fuss { display: flex; flex-direction: column; gap: 4px; color: var(--text-2); font-size: 12px; text-align: center; margin-top: 14px; }
+.fuss .fehler { color: var(--rot); font-weight: 700; }

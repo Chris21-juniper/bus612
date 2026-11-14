@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bus 612</title>
+  <meta name="theme-color" content="#0b5cad">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bus 612">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="lib/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="kopf">
+    <div class="richtung" role="tablist">
+      <button id="btn-schule" role="tab">Zur Schule</button>
+      <button id="btn-heim" role="tab">Nach Hause</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="karte-gross" id="hauptkarte" aria-live="polite">
+      <div class="zeile-oben">
+        <span class="linie">612</span>
+        <span id="strecke-text" class="strecke-text">…</span>
+      </div>
+      <div class="countdown">
+        <span id="cd-zahl" class="cd-zahl">–</span>
+        <span id="cd-einheit" class="cd-einheit"></span>
+      </div>
+      <div id="cd-text" class="cd-text">Lade Busdaten…</div>
+      <div class="zeile-unten">
+        <span id="status" class="pille">–</span>
+        <span id="zeiten" class="zeiten"></span>
+      </div>
+      <div id="tipp" class="tipp" hidden></div>
+    </section>
+
+    <div id="fahrten" class="fahrten" role="listbox" aria-label="Busse"></div>
+
+    <section class="kartenbox">
+      <div id="karte"></div>
+      <button id="btn-folgen" class="folgen" aria-pressed="true" title="Bus folgen">◎</button>
+    </section>
+
+    <details class="haltestellen" id="haltestellen-box">
+      <summary id="haltestellen-titel">Haltestellen</summary>
+      <ol id="haltestellen"></ol>
+    </details>
+
+    <footer class="fuss">
+      <span id="stand">–</span>
+      <span>Position geschätzt aus Fahrplan und Verspätung · Daten transport.opendata.ch · Karte © swisstopo</span>
+    </footer>
+  </main>
+
+  <script src="lib/leaflet.js"></script>
+  <script src="strecke.js"></script>
+  <script src="logik.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
