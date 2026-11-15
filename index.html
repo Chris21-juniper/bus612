@@ -24,7 +24,7 @@
   </header>
 
   <main>
-    <section class="karte-gross" id="hauptkarte" aria-live="polite">
+    <section class="karte-gross" id="hauptkarte">
       <div class="zeile-oben">
         <span class="linie">612</span>
         <span id="strecke-text" class="strecke-text">…</span>
@@ -38,7 +38,7 @@
         <span id="status" class="pille">–</span>
         <span id="zeiten" class="zeiten"></span>
       </div>
-      <div id="tipp" class="tipp" hidden></div>
+      <div id="tipp" class="tipp" hidden aria-live="polite"></div>
     </section>
 
     <div id="fahrten" class="fahrten" role="listbox" aria-label="Busse"></div>

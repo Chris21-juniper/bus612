@@ -54,6 +54,13 @@
   /** Haltestellen mit Fahrplan- und geschaetzter Zeit (ms). Verspaetung wird nach vorne
    *  weitergetragen, wenn eine Haltestelle selbst keine hat. */
   function haltestellen(passList) {
+    // Eintraege ohne Zeit oder Koordinaten verwerfen: sie wuerden NaN-Zeiten bzw. eine
+    // ungueltige Kartenposition erzeugen (Leaflet wirft dann bei jedem Zeichnen).
+    passList = passList.filter(p => {
+      const st = p.station || p.location || {};
+      return (p.arrivalTimestamp || p.departureTimestamp) &&
+             st.coordinate && Number.isFinite(st.coordinate.x) && Number.isFinite(st.coordinate.y);
+    });
     let letzte = null;
     const erste = passList.find(p => p.delay !== null && p.delay !== undefined);
     const start = erste ? erste.delay : null;
@@ -76,8 +83,20 @@
 
   /** Eine Fahrt fuer die Anzeige. kurz = Abschnitt Einstieg->Ausstieg,
    *  lang = dieselbe Fahrt ab Linienanfang (fuer die Anfahrt), falls gefunden. */
+  /** Verspaetungen aus der kurzen Antwort in die lange uebernehmen, wo diese keine hat.
+   *  Ohne das zeigte die App "puenktlich", wenn nur die kurze Antwort Echtzeit enthielt. */
+  function mitEchtzeitAus(langPl, kurzPl) {
+    const schluessel = p => `${(p.station || {}).id}@${p.departureTimestamp || p.arrivalTimestamp}`;
+    const delays = new Map(kurzPl.filter(p => p.delay !== null && p.delay !== undefined)
+                                 .map(p => [schluessel(p), p.delay]));
+    if (!delays.size) return langPl;
+    return langPl.map(p => (p.delay === null || p.delay === undefined) && delays.has(schluessel(p))
+      ? Object.assign({}, p, { delay: delays.get(schluessel(p)) }) : p);
+  }
+
   function baueFahrt(kurz, lang, linie, einstiegId, ausstiegId) {
-    const stops = haltestellen((lang || kurz).passList);
+    const quelle = lang ? mitEchtzeitAus(lang.passList, kurz.passList) : kurz.passList;
+    const stops = haltestellen(quelle);
     const pl = kurz.passList;
     // Einstieg/Ausstieg sind normalerweise die gewuenschten Haltestellen; mit Fussweg
     // sind es die erste/letzte Haltestelle des Busses.
@@ -87,7 +106,7 @@
     let ai = -1;
     for (let i = stops.length - 1; i > ei; i--) if (stops[i].id === ausId) { ai = i; break; }
     if (ei < 0 || ai < 0) return null;
-    const echtzeit = hatEchtzeit((lang || kurz).passList) || hatEchtzeit(kurz.passList);
+    const echtzeit = hatEchtzeit(quelle);   // nur, wenn die verwendeten Zeiten Echtzeit enthalten
     return {
       key: `${kurz.name}@${stops[ei].abPlan}`,
       linie, name: kurz.name, ziel: kurz.ziel, stops, ei, ai, echtzeit,

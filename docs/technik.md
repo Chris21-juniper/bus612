@@ -32,7 +32,9 @@ Pro Aktualisierung gehen bis zu zwei Anfragen parallel raus:
 | kurz | Einstieg → Ausstieg | jetzt − 40 Min. | die eigentlichen Fahrten, auch schon abgefahrene, in denen man vielleicht sitzt |
 | lang (nur „Zur Schule“) | Linienanfang Glashütten → Ausstieg | jetzt − 55 Min. | dieselben Fahrten ab Linienanfang, damit man den Bus schon **kommen** sieht |
 
-Parameter: `direct=1`, `limit=8`. Scheitert die lange Anfrage, läuft die App mit der kurzen
+Parameter: `direct=1`, `limit=8`. Jede Anfrage bricht nach 10 Sekunden ab (`AbortController`
+in `holeJson`); sonst bliebe ein hängender Abruf im Funkloch ewig offen und die nächste
+Abfrage würde nie geplant. Scheitert die lange Anfrage, läuft die App mit der kurzen
 weiter (ohne Anfahrt). Scheitert die kurze, bleibt der letzte Stand stehen, unten erscheint
 „Keine Verbindung“, und es wird nach 15 Sekunden neu versucht.
 
@@ -52,8 +54,12 @@ gestartet wurde (z.B. nach einem Richtungswechsel), wird sie verworfen.
    Abfahrt) kommt teils zweimal, einmal mit und einmal ohne Echtzeit. Die mit Echtzeit gewinnt.
 3. **Mit der langen Antwort verbinden**: Gesucht wird eine Fahrt mit gleichem Namen, deren
    Haltestellenliste den Einstieg mit derselben Abfahrtszeit enthält. Gefunden → die Fahrt hat
-   die vollständige Haltestellenliste ab Linienanfang (`mitAnfahrt: true`).
-4. **Haltestellen berechnen** (`haltestellen`), siehe unten.
+   die vollständige Haltestellenliste ab Linienanfang (`mitAnfahrt: true`). Hat die lange
+   Fahrt an einer Haltestelle keine Verspätung, die kurze aber schon, wird die der kurzen
+   übernommen (`mitEchtzeitAus`, Abgleich über Haltestellen-ID und Fahrplanzeit). Sonst
+   zeigte die App „pünktlich“, obwohl nur die kurze Antwort Echtzeit enthielt.
+4. **Haltestellen berechnen** (`haltestellen`), siehe unten. Einträge ohne Zeit oder ohne
+   Koordinaten werden dabei verworfen.
 5. **Einstieg und Ausstieg** suchen (`ei`, `ai` = Index in `stops`). Der Ausstieg wird von
    hinten gesucht, weil eine Haltestelle bei Schleifen zweimal vorkommen kann.
 
@@ -65,7 +71,7 @@ Ergebnis pro Fahrt:
   name, linie, ziel,
   stops: [{ id, name, lat, lon, anPlan, abPlan, an, ab, verspaetung }],
   ei, ai,              // Index von Einstieg und Ausstieg in stops
-  echtzeit,            // true, wenn irgendeine Haltestelle eine Verspätung gemeldet hat
+  echtzeit,            // true, wenn eine der verwendeten Haltestellen eine Verspätung gemeldet hat
   mitAnfahrt,          // true, wenn stops ab Linienanfang beginnt
   fussVor, fussNach,   // Minuten zu Fuss vor / nach dem Bus (meist 0)
 }
@@ -157,11 +163,25 @@ knapp = e.ab − (gehzeit + fussVor)              los…knapp: "Jetzt losgehen!"
 
 - `manifest.webmanifest` + `apple-mobile-web-app-*`-Metadaten in `index.html`: Vollbild-App mit
   eigenem Symbol.
-- `sw.js`: Beim Installieren werden die eigenen Dateien (`HUELLE`) im Cache `schulbus-v1`
-  abgelegt. Abrufe der eigenen Dateien gehen **zuerst ins Netz** (damit Updates sofort
-  ankommen) und fallen ohne Netz auf den Cache zurück. Abrufe anderer Server (Busdaten,
-  Kartenkacheln) laufen am Service Worker vorbei.
+- `sw.js`: Beim Installieren werden die eigenen Dateien (`HUELLE`) im Cache `schulbus-v2`
+  abgelegt. Abrufe der eigenen Dateien werden **sofort aus dem Cache** beantwortet (schneller
+  Start auch bei schlechtem Netz), gleichzeitig wird die neue Version im Hintergrund geholt
+  und gespeichert („stale-while-revalidate“). Eine Änderung ist also ab dem **übernächsten**
+  Öffnen sichtbar. Nur Antworten mit Status 200 werden gespeichert. Abrufe anderer Server
+  (Busdaten, Kartenkacheln) laufen am Service Worker vorbei.
 - Ohne Netz startet die App also, zeigt aber keine Busdaten.
+
+## Robustheit und Sicherheit
+
+- Texte aus der API (Haltestellennamen) werden vor dem Einsetzen als HTML maskiert (`esc`),
+  auch in den Karten-Tooltips. So kann ein manipulierter Name kein Skript einschleusen.
+- `localStorage` ist in `speicher` gekapselt. Im privaten Modus oder bei kaputtem Inhalt
+  läuft die App ohne gemerkte Richtung weiter.
+- Wirft `zeichne()` einen Fehler, läuft der Sekundentakt weiter. Der Fehler wird einmal in die
+  Konsole geschrieben.
+- Die Haltestellenliste wird nur neu aufgebaut, wenn sich ihr Inhalt ändert. Uhrzeiten werden mit
+  einmal angelegten `Intl.DateTimeFormat`-Objekten formatiert.
+- Es gibt keine Schlüssel, keine Anmeldung und keine eigenen Server.
 
 ## Testen
 

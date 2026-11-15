@@ -76,7 +76,8 @@ Vergangene Halte sind grau, der aktuelle ist markiert.
 3. **Zum Home-Bildschirm** → **Hinzufügen**.
 
 Danach gibt es ein blaues „612“-Symbol. Die App startet im Vollbild wie eine normale App.
-Updates kommen automatisch beim nächsten Öffnen, eine Neuinstallation ist nie nötig.
+Updates kommen automatisch: Die App lädt sie im Hintergrund und zeigt sie ab dem übernächsten
+Öffnen. Eine Neuinstallation ist nie nötig.
 
 ## Bedienung
 
@@ -157,9 +158,11 @@ Weg auf der Strasse beim öffentlichen OSRM-Demoserver ab (rund 35 Anfragen, mit
 dazwischen). Ergebnis: `strecke.js`.
 
 **Nach Änderungen** an `index.html`, `style.css` oder den Skripten muss nichts weiter getan
-werden: Der Service Worker holt immer zuerst die neue Version aus dem Netz. Nur wenn Dateien
-dazukommen oder wegfallen, die offline verfügbar sein sollen, die Liste `HUELLE` in
-[`sw.js`](sw.js) anpassen und `CACHE` hochzählen (z.B. `schulbus-v2`).
+werden: Der Service Worker holt die neue Version im Hintergrund, sie erscheint ab dem
+übernächsten Öffnen. Damit eine Änderung schon beim nächsten Öffnen komplett da ist, oder
+wenn Dateien dazukommen oder wegfallen, die Liste `HUELLE` in [`sw.js`](sw.js) anpassen und
+`CACHE` hochzählen (z.B. `schulbus-v3`). Beim lokalen Testen in den Entwicklerwerkzeugen
+„Update on reload“ einschalten oder zweimal neu laden.
 
 ## Veröffentlichen
 

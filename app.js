@@ -33,8 +33,18 @@ const ZEIT_VERSATZ = (() => {
 const jetztMs = () => Date.now() + ZEIT_VERSATZ;
 const $ = id => document.getElementById(id);
 const kurzName = n => /, Bahnhof$/.test(n) ? n.replace(",", "") : n.replace(/^(Riken AG|Rothrist|Murgenthal), /, "");
-const uhr = ms => new Date(ms).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
-const wochentag = ms => new Date(ms).toLocaleDateString("de-CH", { weekday: "short" });
+// Formatierer einmal anlegen: toLocale*String baut bei jedem Aufruf einen neuen (jede Sekunde dutzendfach)
+const FMT_UHR = new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" });
+const FMT_TAG = new Intl.DateTimeFormat("de-CH", { weekday: "short" });
+const uhr = ms => FMT_UHR.format(ms);
+const wochentag = ms => FMT_TAG.format(ms);
+// Texte aus der API nie ungeprueft als HTML einsetzen
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// localStorage kann fehlen oder werfen (privater Modus, volle Quote, kaputter Inhalt)
+const speicher = {
+  lies(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } },
+  schreib(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* egal */ } },
+};
 
 const zustand = {
   richtung: null,
@@ -49,17 +59,21 @@ const zustand = {
 // ---- Richtung -------------------------------------------------------------------
 
 function richtungNachZeit() {
-  const gemerkt = JSON.parse(localStorage.getItem("richtung") || "null");
-  if (gemerkt && Date.now() - gemerkt.wann < 45 * MIN) return gemerkt.r;
+  const gemerkt = speicher.lies("richtung");
+  if (gemerkt && CFG.richtungen[gemerkt.r] && Date.now() - gemerkt.wann < 45 * MIN) return gemerkt.r;
   return new Date(jetztMs()).getHours() < 11 ? "schule" : "heim";
 }
 
 function setzeRichtung(r, vonHand) {
-  if (vonHand) localStorage.setItem("richtung", JSON.stringify({ r, wann: Date.now() }));
+  if (vonHand) speicher.schreib("richtung", { r, wann: Date.now() });
   if (zustand.richtung === r) return;
   zustand.richtung = r;
   zustand.fahrten = [];
   zustand.gewaehlt = null;
+  // Stand und Fehler gehoeren zur alten Richtung: sonst stuende kurz "Kein Bus gefunden"
+  // bzw. "Stand vor 3 Min." von Daten, die gar nicht angezeigt werden
+  zustand.stand = null;
+  zustand.fehler = false;
   $("btn-schule").classList.toggle("aktiv", r === "schule");
   $("btn-heim").classList.toggle("aktiv", r === "heim");
   $("btn-schule").setAttribute("aria-selected", r === "schule");
@@ -73,10 +87,18 @@ function setzeRichtung(r, vonHand) {
 
 // ---- Daten ------------------------------------------------------------------------
 
-async function holeJson(url) {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+// Mit Zeitlimit: Ein haengender Abruf (Funkloch) wuerde sonst nie fertig, und weil die
+// naechste Abfrage erst danach geplant wird, froeren die Live-Daten still ein.
+async function holeJson(url, ms = 10000) {
+  const abbruch = new AbortController();
+  const uhrwerk = setTimeout(() => abbruch.abort(), ms);
+  try {
+    const r = await fetch(url, { cache: "no-store", signal: abbruch.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally {
+    clearTimeout(uhrwerk);
+  }
 }
 
 let naechsteAbfrage = null;
@@ -240,7 +262,7 @@ function zeichneAuswahl(aktiv, jetzt) {
   const teile = Logik.auswahl(zustand.fahrten, jetzt, 4).map(f => {
     const v = f.echtzeit && f.einstieg.verspaetung > 0 ? ` <em>+${f.einstieg.verspaetung}</em>` : "";
     const weg = jetzt >= f.einstieg.ab ? `<small>unterwegs</small>`
-              : f.fussVor ? `<small>ab ${kurzName(f.einstieg.name)}</small>` : "";
+              : f.fussVor ? `<small>ab ${esc(kurzName(f.einstieg.name))}</small>` : "";
     return { key: f.key, aktiv: !!aktiv && f.key === aktiv.key, html: `${uhr(f.einstieg.abPlan)}${v}${weg}` };
   });
   // nur neu bauen, wenn sich etwas aendert (sonst geht ein Antippen verloren)
@@ -261,20 +283,20 @@ function zeichneAuswahl(aktiv, jetzt) {
 
 function zeichneHaltestellen(f, pos) {
   const ol = $("haltestellen");
-  ol.innerHTML = "";
-  f.stops.forEach((s, i) => {
-    if (i > f.ai) return;
-    const li = document.createElement("li");
+  const zeilen = f.stops.slice(0, f.ai + 1).map((s, i) => {
     const vorbei = i < pos.index || (i === pos.index && pos.zustand !== "start" && pos.zustand !== "halt") ||
                    pos.zustand === "ende";
-    li.className = [vorbei ? "vorbei" : "", i === f.ei || i === f.ai ? "meine" : "",
+    const klasse = [vorbei ? "vorbei" : "", i === f.ei || i === f.ai ? "meine" : "",
                     i === pos.index && pos.zustand !== "ende" ? "hier" : ""].join(" ");
     const zeit = i === 0 ? s.ab : s.an;
     const plan = i === 0 ? s.abPlan : s.anPlan;
     const sp = f.echtzeit && zeit !== plan ? ` <em>${uhr(zeit)}</em>` : "";
-    li.innerHTML = `<span class="t">${uhr(plan)}${sp}</span><span class="n">${s.name}</span>`;
-    ol.appendChild(li);
-  });
+    return `<li class="${klasse}"><span class="t">${uhr(plan)}${sp}</span><span class="n">${esc(s.name)}</span></li>`;
+  }).join("");
+  // Die Liste aendert sich nur bei jedem Halt; nicht jede Sekunde 18 Elemente neu bauen
+  if (ol.dataset.signatur === zeilen) return;
+  ol.dataset.signatur = zeilen;
+  ol.innerHTML = zeilen;
   $("haltestellen-titel").textContent = `Haltestellen (${f.ai - (f.mitAnfahrt ? 0 : f.ei) + 1})`;
 }
 
@@ -324,7 +346,7 @@ const kartenEbene = (() => {
       L.circleMarker([s.lat, s.lon], {
         radius: meine ? 8 : 4, weight: meine ? 3 : 2,
         className: meine ? "halt-meine" : "halt",
-      }).bindTooltip(meine ? `<b>${s.name}</b>` : s.name, { permanent: meine, direction: "right", offset: [8, 0],
+      }).bindTooltip(meine ? `<b>${esc(s.name)}</b>` : esc(s.name), { permanent: meine, direction: "right", offset: [8, 0],
                                                          className: "halt-name" })
         .addTo(gruppe);
     });
@@ -375,7 +397,14 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-setInterval(() => { if (!document.hidden) zeichne(); }, 1000);
+// Ein Fehler beim Zeichnen darf die Uhr nicht anhalten; nur einmal melden statt jede Sekunde
+let zeichenFehlerGemeldet = false;
+setInterval(() => {
+  if (document.hidden) return;
+  try { zeichne(); } catch (e) {
+    if (!zeichenFehlerGemeldet) { console.error("Zeichnen fehlgeschlagen", e); zeichenFehlerGemeldet = true; }
+  }
+}, 1000);
 setzeRichtung(richtungNachZeit(), false);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
