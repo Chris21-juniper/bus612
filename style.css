@@ -101,6 +101,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bus-marker .bus svg { width: 18px; height: 18px; }
 .bus-marker.live .puls { position: absolute; inset: -6px; border-radius: 50%; background: var(--blau); opacity: .35;
                          animation: puls 1.8s ease-out infinite; }
+/* Eigener Standort: gruener Punkt, damit er nicht mit dem blauen Bus verwechselt wird */
+.ich-marker div { width: 22px; height: 22px; border-radius: 50%; background: #1f9d55; border: 3px solid #fff;
+                  box-sizing: border-box; box-shadow: 0 0 0 1px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.35); }
+.ich-genau { fill: #1f9d55; fill-opacity: .12; stroke: #1f9d55; stroke-opacity: .4; stroke-width: 1; }
 @keyframes puls { from { transform: scale(.6); opacity: .5; } to { transform: scale(1.4); opacity: 0; } }
 
 /* Haltestellen */

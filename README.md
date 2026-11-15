@@ -78,6 +78,9 @@ Auf dem Heimweg zählt die grosse Anzeige dann zuerst bis zur Abfahrt des 603. D
 - Linienverlauf auf der Strasse; der eigene Abschnitt ist blau, die Anfahrt des Busses grau gestrichelt.
 - Der Bus ist ein blauer Punkt mit Bussymbol. Er pulsiert, wenn Echtzeitdaten vorhanden sind.
 - Die eigenen Haltestellen sind gross und beschriftet.
+- Der **eigene Standort** ist ein grüner Punkt, bei ungenauem GPS mit hellgrünem Kreis.
+  Solange der Bus noch kommt und man in der Nähe der Einstiegshaltestelle ist, zeigt die
+  Karte Bus, Haltestelle und einen selbst zusammen.
 
 **Haltestellenliste** (aufklappbar): alle Halte mit Fahrplanzeit, abweichende Echtzeit in Rot.
 Vergangene Halte sind grau, der aktuelle ist markiert.
@@ -88,6 +91,9 @@ Vergangene Halte sind grau, der aktuelle ist markiert.
 2. Unten auf **Teilen** tippen (Viereck mit Pfeil nach oben).
 3. **Zum Home-Bildschirm** → **Hinzufügen**.
 
+4. Beim ersten Öffnen fragt das iPhone nach dem Standort: **Beim Verwenden der App erlauben**.
+   Ohne Standort funktioniert die App auch, dann ohne grünen Punkt und mit der Richtung nach Uhrzeit.
+
 Danach gibt es ein blaues „612“-Symbol. Die App startet im Vollbild wie eine normale App.
 Updates kommen automatisch: Die App lädt sie im Hintergrund und zeigt sie ab dem übernächsten
 Öffnen. Eine Neuinstallation ist nie nötig.
@@ -96,11 +102,22 @@ Updates kommen automatisch: Die App lädt sie im Hintergrund und zeigt sie ab de
 
 | Was | Wie |
 |---|---|
-| Richtung wechseln | oben „Zur Schule“ / „Nach Hause“. Vor 11 Uhr ist automatisch „Zur Schule“ gewählt, danach „Nach Hause“. Eine eigene Wahl gilt 45 Minuten lang. |
+| Richtung wechseln | oben „Zur Schule“ / „Nach Hause“. Beim Öffnen wählt die App selbst, siehe unten. Eine eigene Wahl gilt 45 Minuten lang. |
 | Anderen Bus anzeigen | die Zeit-Knöpfe unter der grossen Anzeige. „unterwegs“ = der Bus ist schon abgefahren (nützlich, wenn man drin sitzt). |
 | Sofort aktualisieren | auf die grosse Anzeige tippen |
 | Karte frei bewegen | einfach schieben oder zoomen. Die Karte folgt dem Bus dann nicht mehr. |
 | Karte wieder dem Bus folgen lassen | Knopf ◎ unten rechts auf der Karte |
+
+**Welche Richtung beim Öffnen?**
+
+1. Eine eigene Wahl der letzten 45 Minuten gilt weiter.
+2. Sonst der Standort: bis 1,5 km um die Haltestelle Riken Neustadt → „Zur Schule“,
+   bis 2,5 km um Sennhof-Dörfli (Rothrist) → „Nach Hause“.
+3. Ohne Standort oder anderswo die Uhrzeit: vor 11 Uhr „Zur Schule“, danach „Nach Hause“.
+
+Der Standort entscheidet nur beim Öffnen bzw. Zurückkehren in die App. Unterwegs schaltet die
+App nicht um, auch wenn man im Bus an Riken vorbeifährt. Der Standort bleibt auf dem iPhone:
+Er wird weder gespeichert noch irgendwohin geschickt. Im Hintergrund ist GPS aus.
 
 Die App fragt die Daten alle 30 Sekunden neu ab, wenn ein Bus in der nächsten Stunde fährt,
 sonst alle 5 Minuten. Beim Zurückkehren in die App wird sofort aktualisiert. Unten steht,
@@ -130,6 +147,7 @@ Alle Einstellungen stehen oben in [`app.js`](app.js) im Objekt `CFG`:
 | `richtungen.*.von/nach` | Haltestellen-IDs | Einstieg und Ausstieg je Richtung |
 | `richtungen.schule.vorlauf` | 8502388 | Linienanfang Glashütten, Kirche: damit man den Bus schon kommen sieht |
 | `takt.nah` / `takt.fern` | 30 s / 5 Min. | Abfrageintervall mit / ohne baldigen Bus |
+| `orte.schule` / `orte.heim` | Koordinaten, Radius 1500 / 2500 m | Wo beim Öffnen „Zur Schule“ bzw. „Nach Hause“ gewählt wird |
 | `umsteigen.min` / `umsteigen.maxWarte` | 2 / 30 | Minuten zum Umsteigen in Rothrist Bahnhof (mindestens / höchstens warten) |
 
 Haltestellen-IDs findet man so:
@@ -161,6 +179,9 @@ auch am Wochenende oder abends testen:
 | `?zeit=2026-11-16T12:10` | Heimweg mit Umsteigen: zuerst Bus 603 zum Bahnhof |
 | `?zeit=2026-11-16T14:50` | Heimweg direkt |
 
+**Standort simulieren:** `?ort=47.2735,7.8485` (Breite,Länge) ersetzt das GPS, z.B.
+`?zeit=2026-11-16T14:50&ort=47.2735,7.8485` öffnet am Nachmittag trotzdem „Zur Schule“.
+
 Das Datum muss ein Schultag mit Fahrplandaten sein (der Fahrplan ist rund ein Jahr im Voraus abrufbar).
 
 **Strassenverlauf neu erzeugen** (nur bei geänderter Linienführung):
@@ -187,7 +208,8 @@ auf `main` ist nach etwa einer Minute online. Die leere Datei `.nojekyll` sorgt 
 GitHub die Dateien unverändert ausliefert.
 
 Datenschutz: Das Repo und die Seite sind öffentlich. Die App enthält keine Namen und keine
-Adressen, nur die Haltestellen der Linie und die Gehzeiten.
+Adressen, nur die Haltestellen der Linie und die Gehzeiten. Die Orte für die Richtungswahl
+sind Haltestellen-Koordinaten. Der GPS-Standort verlässt das Gerät nie.
 
 ## Dateien
 

@@ -175,8 +175,26 @@ knapp = e.ab − (gehzeit + fussVor)              los…knapp: "Jetzt losgehen!"
 **Heimweg:** `los = e.ab − (schulweg + fussVor)`, zu Hause = Ankunft + gehzeit + fussNach.
 Mit Anschlussbus: `los = Abfahrt Anschluss − schulweg`.
 
-**Richtung:** vor 11 Uhr „Zur Schule“, sonst „Nach Hause“. Eine eigene Wahl wird in
-`localStorage` (`richtung`) für 45 Minuten gemerkt.
+**Richtung:** Eine eigene Wahl wird in `localStorage` (`richtung`) für 45 Minuten gemerkt
+(`eigeneWahl`). Sonst entscheidet der Standort (`richtungNachOrt`, siehe unten), sonst die
+Uhrzeit: vor 11 Uhr „Zur Schule“, danach „Nach Hause“.
+
+## Eigener Standort
+
+`standort` in `app.js` startet `navigator.geolocation.watchPosition` (hohe Genauigkeit,
+`maximumAge` 30 s) beim Start und beim Zurückkehren in die App. Im Hintergrund wird die
+Überwachung beendet (`clearWatch`). Bei verweigerter Erlaubnis läuft die App ohne Standort weiter.
+
+- `zustand.ort = {lat, lon, genau, wann}`, nur im Speicher, nie gespeichert oder verschickt.
+- Karte: grüner Punkt (`.ich-marker`) auf eigener Ebene, Genauigkeitskreis bis 300 m. Vor der
+  Abfahrt und bis 3 km vom Einstieg wird der Standort in den Kartenausschnitt einbezogen.
+- **Richtungswahl:** `zustand.ortEntscheidet` ist beim Start und nach jedem Zurückkehren `true`.
+  Der erste Standort mit Genauigkeit unter 1 km wählt dann die Richtung (falls keine eigene Wahl)
+  und setzt das Flag zurück. Spätere Standorte schalten nicht um, damit die Richtung während der
+  Fahrt nicht kippt.
+- `richtungNachOrt`: Standort jünger als 5 Min., innerhalb `CFG.orte.<richtung>.radius` um den
+  Mittelpunkt. Liegt er in beiden Kreisen, gewinnt der nähere.
+- Test: `?ort=lat,lon` ersetzt das GPS (`ORT_FEST`).
 
 ## Karte
 

@@ -23,6 +23,12 @@ const CFG = {
   // Beginnt/endet der 612 nicht am Doerfli (sondern z.B. in Rothrist, Bahnhof), wird ein
   // Anschlussbus zwischen Doerfli und diesem Halt gesucht.
   umsteigen: { min: 2, maxWarte: 30 },  // Minuten: mindestens zum Umsteigen, hoechstens warten
+  // Standort beim Oeffnen der App: nahe Riken -> "Zur Schule", nahe Rothrist -> "Nach Hause".
+  // Mittelpunkte sind die Haltestellen, Radius in Metern.
+  orte: {
+    schule: { lat: 47.272252, lon: 7.846854, radius: 1500 },   // um Riken AG, Neustadt
+    heim:   { lat: 47.305584, lon: 7.888969, radius: 2500 },   // um Rothrist, Sennhof-Doerfli
+  },
 };
 
 const MIN = 60000;
@@ -34,6 +40,11 @@ const ZEIT_VERSATZ = (() => {
   return isNaN(t) ? 0 : t - Date.now();
 })();
 const jetztMs = () => Date.now() + ZEIT_VERSATZ;
+// Zum Ausprobieren: ?ort=47.2723,7.8469 setzt den eigenen Standort fest (statt GPS).
+const ORT_FEST = (() => {
+  const m = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(new URLSearchParams(location.search).get("ort") || "");
+  return m ? { lat: +m[1], lon: +m[2], genau: 10 } : null;
+})();
 const $ = id => document.getElementById(id);
 const kurzName = n => /, Bahnhof$/.test(n) ? n.replace(",", "") : n.replace(/^(Riken AG|Rothrist|Murgenthal), /, "");
 // Formatierer einmal anlegen: toLocale*String baut bei jedem Aufruf einen neuen (jede Sekunde dutzendfach)
@@ -57,14 +68,32 @@ const zustand = {
   fehler: false,
   folgen: true,
   abfrage: 0,               // laufende Nummer: veraltete Antworten verwerfen
+  ort: null,                // eigener Standort {lat, lon, genau, wann}; bleibt auf dem Geraet
+  ortEntscheidet: true,     // naechster Standort darf die Richtung waehlen (nur beim Oeffnen)
 };
 
 // ---- Richtung -------------------------------------------------------------------
 
-function richtungNachZeit() {
+function eigeneWahl() {
   const gemerkt = speicher.lies("richtung");
-  if (gemerkt && CFG.richtungen[gemerkt.r] && Date.now() - gemerkt.wann < 45 * MIN) return gemerkt.r;
-  return new Date(jetztMs()).getHours() < 11 ? "schule" : "heim";
+  return gemerkt && CFG.richtungen[gemerkt.r] && Date.now() - gemerkt.wann < 45 * MIN ? gemerkt.r : null;
+}
+
+/** Richtung aus dem Standort: nahe zu Hause -> Schule, nahe Rothrist -> Heim, sonst null. */
+function richtungNachOrt() {
+  const o = zustand.ort;
+  if (!o || Date.now() - o.wann > 5 * MIN) return null;
+  let beste = null, bestD = Infinity;
+  for (const [r, z] of Object.entries(CFG.orte)) {
+    const d = L.latLng(o.lat, o.lon).distanceTo([z.lat, z.lon]);
+    if (d <= z.radius && d < bestD) { beste = r; bestD = d; }
+  }
+  return beste;
+}
+
+/** Reihenfolge: eigene Wahl (45 Min.) > Standort > Tageszeit (vor 11 Uhr Schule). */
+function richtungNachZeit() {
+  return eigeneWahl() || richtungNachOrt() || (new Date(jetztMs()).getHours() < 11 ? "schule" : "heim");
 }
 
 function setzeRichtung(r, vonHand) {
@@ -394,6 +423,10 @@ const kartenEbene = (() => {
     { maxNativeZoom: 18, maxZoom: 19, minZoom: 10 }).addTo(karte);
 
   const gruppe = L.layerGroup().addTo(karte);
+  // Eigener Standort: eigene Ebene, bleibt beim Umschalten der Fahrt stehen
+  const ichKreis = L.circle([0, 0], { radius: 0, className: "ich-genau", interactive: false });
+  const ichPunkt = L.marker([0, 0], { interactive: false, zIndexOffset: 500,
+    icon: L.divIcon({ className: "ich-marker", html: "<div></div>", iconSize: [22, 22], iconAnchor: [11, 11] }) });
   let busMarker = null, gezeichnetFuer = null, zuletztEingepasst = 0;
 
   const busIcon = echtzeit => L.divIcon({
@@ -437,6 +470,11 @@ const kartenEbene = (() => {
   return {
     karte,
     leeren() { gruppe.clearLayers(); gezeichnetFuer = null; busMarker = null; },
+    ich(o) {
+      if (!karte.hasLayer(ichPunkt)) { ichKreis.addTo(karte); ichPunkt.addTo(karte); }
+      ichPunkt.setLatLng([o.lat, o.lon]);
+      ichKreis.setLatLng([o.lat, o.lon]).setRadius(o.genau < 300 ? o.genau : 0);
+    },
     zeige(f, pos) {
       if (gezeichnetFuer !== `${f.key}|${f.echtzeit}`) { zeichneStrecke(f); zuletztEingepasst = 0; }
       busMarker.setLatLng([pos.lat, pos.lon]);
@@ -450,8 +488,45 @@ const kartenEbene = (() => {
           // Bus steht (fast) an der Haltestelle: vorher die ganze Fahrt, am Schluss das Ziel zeigen
           b = vorher ? L.latLngBounds(linieFuer(f, f.ei, f.ai)) : b.pad(1.5);
         }
+        // Solange der Bus noch kommt: auch sich selbst zeigen, wenn man in der Naehe des Einstiegs ist
+        const o = zustand.ort;
+        if (vorher && o && Date.now() - o.wann < 5 * MIN &&
+            L.latLng(o.lat, o.lon).distanceTo([f.einstieg.lat, f.einstieg.lon]) < 3000) b.extend([o.lat, o.lon]);
         karte.fitBounds(b, { padding: [40, 40], maxZoom: 15, animate: true });
       }
+    },
+  };
+})();
+
+// ---- Eigener Standort -------------------------------------------------------------------
+// Nur auf dem Geraet: wird weder gespeichert noch irgendwohin geschickt.
+
+const standort = (() => {
+  let wache = null;
+
+  function neu(o) {
+    zustand.ort = { lat: o.lat, lon: o.lon, genau: o.genau, wann: Date.now() };
+    kartenEbene.ich(zustand.ort);
+    // Nur direkt nach dem Oeffnen die Richtung waehlen, nicht unterwegs umschalten
+    if (zustand.ortEntscheidet && o.genau < 1000) {
+      zustand.ortEntscheidet = false;
+      const r = eigeneWahl() || richtungNachOrt();
+      if (r && r !== zustand.richtung) setzeRichtung(r, false);
+    }
+  }
+
+  return {
+    start() {
+      if (ORT_FEST) { neu(ORT_FEST); return; }
+      if (wache !== null || !("geolocation" in navigator)) return;
+      wache = navigator.geolocation.watchPosition(
+        p => neu({ lat: p.coords.latitude, lon: p.coords.longitude, genau: p.coords.accuracy }),
+        e => { console.info("Standort nicht verfügbar", e.message); if (e.code === 1) standort.stopp(); },
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+    },
+    stopp() {
+      if (wache !== null) navigator.geolocation.clearWatch(wache);
+      wache = null;
     },
   };
 })();
@@ -468,8 +543,12 @@ $("hauptkarte").onclick = () => aktualisiere();
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
+    zustand.ortEntscheidet = true;      // wie ein Neustart: der naechste Standort darf waehlen
+    standort.start();
     const r = richtungNachZeit();
     if (r !== zustand.richtung) setzeRichtung(r, false); else aktualisiere();
+  } else {
+    standort.stopp();                   // im Hintergrund kein GPS (Akku)
   }
 });
 
@@ -482,5 +561,6 @@ setInterval(() => {
   }
 }, 1000);
 setzeRichtung(richtungNachZeit(), false);
+standort.start();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
