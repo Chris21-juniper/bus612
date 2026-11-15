@@ -20,6 +20,9 @@ const CFG = {
     },
   },
   takt: { nah: 30000, fern: 300000 },   // Abfrage alle 30 s, wenn ein Bus bald faehrt
+  // Beginnt/endet der 612 nicht am Doerfli (sondern z.B. in Rothrist, Bahnhof), wird ein
+  // Anschlussbus zwischen Doerfli und diesem Halt gesucht.
+  umsteigen: { min: 2, maxWarte: 30 },  // Minuten: mindestens zum Umsteigen, hoechstens warten
 };
 
 const MIN = 60000;
@@ -116,7 +119,10 @@ async function aktualisiere() {
                  : Promise.resolve(null),
     ]);
     if (nr !== zustand.abfrage) return;       // inzwischen neu abgefragt / umgeschaltet
-    zustand.fahrten = Logik.fahrtenBauen(kurz, lang, CFG.linie, rc.von.id, rc.nach.id);
+    const fahrten = Logik.fahrtenBauen(kurz, lang, CFG.linie, rc.von.id, rc.nach.id);
+    await anschluesseSuchen(fahrten, rc);
+    if (nr !== zustand.abfrage) return;
+    zustand.fahrten = fahrten;
     zustand.stand = Date.now();
     zustand.fehler = false;
   } catch (e) {
@@ -126,6 +132,32 @@ async function aktualisiere() {
   }
   zeichne();
   planeNaechste();
+}
+
+/** Fuer Fahrten mit Umsteigen den Anschlussbus Doerfli <-> Umsteigehalt holen.
+ *  Schlaegt das fehl, bleibt die Fahrt gueltig; angezeigt wird dann der Fussweg. */
+async function anschluesseSuchen(fahrten, rc) {
+  const nachHalt = new Map();
+  for (const f of fahrten) {
+    const h = Logik.umsteigeHalt(f);
+    if (!h) continue;
+    // vor: Doerfli -> Halt, rechtzeitig vor der Abfahrt; nach: Halt -> Doerfli, ab Ankunft
+    const t = h.seite === "vor" ? f.einstieg.abPlan - (CFG.umsteigen.maxWarte + 15) * MIN : f.ausstieg.anPlan - 5 * MIN;
+    const k = `${h.seite}|${h.id}`;
+    const alt = nachHalt.get(k);
+    if (!alt || t < alt.t) nachHalt.set(k, { h, t });
+  }
+  const busse = new Map();
+  await Promise.all([...nachHalt].map(async ([k, { h, t }]) => {
+    const [von, nach] = h.seite === "vor" ? [rc.von.id, h.id] : [h.id, rc.nach.id];
+    try {
+      busse.set(k, Logik.anschlussBusse(await holeJson(Logik.verbindungsUrl(von, nach, new Date(t), 16)), von, nach));
+    } catch (e) { console.warn("Anschluss nicht abrufbar", e); }
+  }));
+  for (const f of fahrten) {
+    const h = Logik.umsteigeHalt(f);
+    f.anschluss = h ? Logik.passenderAnschluss(f, busse.get(`${h.seite}|${h.id}`) || [], CFG.umsteigen.min, CFG.umsteigen.maxWarte) : null;
+  }
 }
 
 function planeNaechste() {
@@ -168,6 +200,7 @@ function zeichne() {
       (zustand.stand ? "Kein Bus 612 gefunden" : "Lade Busdaten…");
     $("status").textContent = "–"; $("status").className = "pille grau";
     $("zeiten").textContent = ""; $("tipp").hidden = true;
+    $("art").hidden = true; $("umstieg").hidden = true;
     zeichneStand();
     return;
   }
@@ -177,18 +210,39 @@ function zeichne() {
   const st = statusText(f);
   $("status").textContent = st.text; $("status").className = `pille ${st.klasse}`;
   const tag = new Date(e.abPlan).toDateString() !== new Date(jetztMs()).toDateString() ? `${wochentag(e.abPlan)} ` : "";
-  $("zeiten").textContent = `ab ${tag}${uhr(e.abPlan)} · an ${uhr(a.anPlan)}`;
-  const rc = CFG.richtungen[zustand.richtung];
-  const fussWeg = f.fussNach ? `, dann ${f.fussNach} Min. zu Fuss` : "";
+  const an = f.anschluss, vor = an && an.seite === "vor" ? an : null, nach = an && an.seite === "nach" ? an : null;
+  // Zeiten der ganzen Reise ab/bis Doerfli bzw. Riken, nicht nur des 612
+  $("zeiten").textContent = `ab ${tag}${uhr(vor ? vor.abPlan : e.abPlan)} · an ${uhr(nach ? nach.anPlan : a.anPlan)}`;
+  const direkt = Logik.istDirekt(f);
+  $("art").hidden = false;
+  $("art").textContent = direkt ? "direkt" : (an ? "umsteigen" : "mit Fussweg");
+  $("art").className = `pille ${direkt ? "direkt" : "um"}`;
+  zeigeUmstieg(f);
+  const fussWeg = nach ? `, dann Bus ${nach.linie} um ${uhr(nach.ab)}` : f.fussNach ? `, dann ${f.fussNach} Min. zu Fuss` : "";
 
   const tipp = $("tipp");
   tipp.hidden = true;
 
-  if (jetzt < e.ab) {
+  if (vor && jetzt < vor.ab) {
+    // Zuerst mit dem Anschlussbus zum Umsteigehalt
+    zeigeZahl(vor.ab);
+    $("cd-text").textContent = `bis Bus ${vor.linie} in ${kurzName(CFG.richtungen[zustand.richtung].von.name)} abfährt`;
+    const los = vor.ab - CFG.schulweg * MIN;
+    const heim = uhr(a.an + (CFG.gehzeit + f.fussNach) * MIN);
+    tipp.hidden = false;
+    if (jetzt < los) {
+      tipp.textContent = `Los um ${uhr(los)} zum Bus ${vor.linie} · zu Hause ca. ${heim}`; tipp.className = "tipp";
+    } else {
+      tipp.textContent = `Jetzt los zur Haltestelle! · zu Hause ca. ${heim}`; tipp.className = "tipp jetzt"; haupt.classList.add("jetzt");
+    }
+  } else if (jetzt < e.ab) {
     // Bus kommt noch
     zeigeZahl(e.ab);
     $("cd-text").textContent = anfahrtText(f, pos);
-    if (zustand.richtung === "schule") {
+    if (vor) {
+      tipp.hidden = false; tipp.className = "tipp";
+      tipp.textContent = `Im Bus ${vor.linie} · in ${kurzName(e.name)} umsteigen auf den 612 (${uhr(e.ab)})`;
+    } else if (zustand.richtung === "schule") {
       const los = e.ab - (CFG.gehzeit + CFG.puffer + f.fussVor) * MIN;
       const knapp = e.ab - (CFG.gehzeit + f.fussVor) * MIN;
       tipp.hidden = false;
@@ -236,6 +290,26 @@ function zeichne() {
   zeichneStand();
 }
 
+/** Zeile mit dem Umsteigen bzw. Fussweg; bei direkten Fahrten ausgeblendet. */
+function zeigeUmstieg(f) {
+  const el = $("umstieg"), an = f.anschluss;
+  const rc = CFG.richtungen[zustand.richtung];
+  let text = "";
+  if (an && an.seite === "vor") {
+    text = `Umsteigen in ${kurzName(f.einstieg.name)}: Bus ${an.linie} ab ${kurzName(rc.von.name)} ${uhr(an.ab)}, ` +
+           `an ${uhr(an.an)} → Bus 612 ab ${uhr(f.einstieg.ab)}`;
+  } else if (an && an.seite === "nach") {
+    text = `Umsteigen in ${kurzName(f.ausstieg.name)}: an ${uhr(f.ausstieg.an)} → Bus ${an.linie} ab ${uhr(an.ab)}, ` +
+           `an ${kurzName(rc.nach.name)} ${uhr(an.an)}`;
+  } else if (f.fussVor) {
+    text = `Der 612 fährt erst ab ${kurzName(f.einstieg.name)}: ${f.fussVor} Min. zu Fuss dorthin`;
+  } else if (f.fussNach) {
+    text = `Der 612 fährt nur bis ${kurzName(f.ausstieg.name)}: dann ${f.fussNach} Min. zu Fuss`;
+  }
+  el.hidden = !text;
+  if (el.textContent !== text) el.textContent = text;
+}
+
 function zeigeZahl(ziel) {
   const ms = ziel - jetztMs();
   if (ms < MIN) { $("cd-zahl").textContent = "jetzt"; $("cd-einheit").textContent = ""; return; }
@@ -261,9 +335,11 @@ function zeichneAuswahl(aktiv, jetzt) {
   const box = $("fahrten");
   const teile = Logik.auswahl(zustand.fahrten, jetzt, 4).map(f => {
     const v = f.echtzeit && f.einstieg.verspaetung > 0 ? ` <em>+${f.einstieg.verspaetung}</em>` : "";
+    const vor = f.anschluss && f.anschluss.seite === "vor" ? f.anschluss : null;
     const weg = jetzt >= f.einstieg.ab ? `<small>unterwegs</small>`
-              : f.fussVor ? `<small>ab ${esc(kurzName(f.einstieg.name))}</small>` : "";
-    return { key: f.key, aktiv: !!aktiv && f.key === aktiv.key, html: `${uhr(f.einstieg.abPlan)}${v}${weg}` };
+              : Logik.istDirekt(f) ? `<small>direkt</small>` : `<small class="um">umsteigen</small>`;
+    // Abfahrt am eigenen Halt: bei Umsteigen die des Anschlussbusses
+    return { key: f.key, aktiv: !!aktiv && f.key === aktiv.key, html: `${uhr(vor ? vor.abPlan : f.einstieg.abPlan)}${v}${weg}` };
   });
   // nur neu bauen, wenn sich etwas aendert (sonst geht ein Antippen verloren)
   const signatur = JSON.stringify(teile);

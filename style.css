@@ -58,6 +58,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .pille.gelb { background: #3d3010; color: #ffd166; }
   .pille.rot { background: #4a1616; color: #ff8a80; }
 }
+.pille.direkt { background: #def5e7; color: var(--gruen); }
+.pille.um { background: #ffe4cc; color: #8a4300; }
+@media (prefers-color-scheme: dark) {
+  .pille.direkt { background: #123d26; color: #6fdc9b; }
+  .pille.um { background: #4a2a10; color: #ffb366; }
+}
+.umstieg { margin-top: 10px; padding: 8px 12px; border-radius: 12px; border: 2px dashed var(--orange);
+  font-weight: 600; font-size: 15px; line-height: 1.35; }
+.fahrt small.um { color: var(--orange); }
 .tipp { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--blau-hell); font-weight: 700; font-size: 17px; }
 .tipp.bald { background: #fff2cc; color: #6b4800; }
 .tipp.jetzt { background: var(--gruen); color: #fff; font-size: 20px; }

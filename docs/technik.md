@@ -32,6 +32,10 @@ Pro Aktualisierung gehen bis zu zwei Anfragen parallel raus:
 | kurz | Einstieg → Ausstieg | jetzt − 40 Min. | die eigentlichen Fahrten, auch schon abgefahrene, in denen man vielleicht sitzt |
 | lang (nur „Zur Schule“) | Linienanfang Glashütten → Ausstieg | jetzt − 55 Min. | dieselben Fahrten ab Linienanfang, damit man den Bus schon **kommen** sieht |
 
+Danach, nur wenn eine Fahrt nicht direkt ist (siehe [Umsteigen](#umsteigen)), eine dritte
+Anfrage für den Anschlussbus zwischen Sennhof-Dörfli und dem Umsteigehalt (`limit=16`).
+Scheitert sie, zeigt die App statt des Anschlussbusses den Fussweg.
+
 Parameter: `direct=1`, `limit=8`. Jede Anfrage bricht nach 10 Sekunden ab (`AbortController`
 in `holeJson`); sonst bliebe ein hängender Abruf im Funkloch ewig offen und die nächste
 Abfrage würde nie geplant. Scheitert die lange Anfrage, läuft die App mit der kurzen
@@ -106,6 +110,31 @@ fussNach = (Ankunft der Verbindung − Ankunft letzte Bus-Haltestelle) in Minute
 Ist `fussVor > 0`, gilt die erste Haltestelle des Busses als Einstieg (entsprechend `fussNach`
 für den Ausstieg). Die Anzeige rechnet den Fussweg in die Losgeh- und Ankunftszeiten ein.
 
+## Umsteigen
+
+Viele 612er fahren nicht bis Sennhof-Dörfli, sondern beginnen oder enden in Rothrist, Bahnhof
+(z.B. Schule 06:17, 08:33, 12:21; Heim 12:35, 13:20). Zwischen Bahnhof und Dörfli fahren die
+Busse 603/606 etwa alle 15 Minuten (4–5 Min. Fahrzeit).
+
+- `istDirekt(f)`: weder `fussVor` noch `fussNach` → „direkt“.
+- `umsteigeHalt(f)`: Halt, an dem der 612 beginnt (`seite: "vor"`) bzw. endet (`"nach"`).
+- `anschlussBusse(daten, von, nach)`: direkte Busse jeder Linie zwischen den beiden Halten, ohne
+  Fussweg-Abschnitte, Zeiten in ms inkl. Verspätung.
+- `passenderAnschluss(f, busse, min, maxWarte)`:
+  - `vor` (Heimweg): der **letzte** Bus, der spätestens `min` Minuten vor der 612-Abfahrt am
+    Umsteigehalt ankommt.
+  - `nach` (Schulweg): der **erste** Bus, der frühestens `min` Minuten nach der 612-Ankunft abfährt.
+  - Wartezeit höchstens `maxWarte` Minuten, sonst `null` (dann wird der Fussweg angezeigt).
+
+Einstellungen in `CFG.umsteigen`: `min` 2, `maxWarte` 30. Das Ergebnis steht in `f.anschluss`
+(`linie`, `ab`, `an`, `abPlan`, `anPlan`, `seite`, `halt`, `warte`).
+
+Anzeige: Etikett „direkt“ / „umsteigen“ / „mit Fussweg“, eine gestrichelte Zeile mit dem
+Umsteigen und auf den Bus-Knöpfen „direkt“ bzw. „umsteigen“. Die Zeiten „ab … · an …“ gelten
+für die ganze Reise ab/bis Dörfli. Beim Heimweg mit Anschluss zählt der Countdown zuerst bis zur
+Abfahrt des Anschlussbusses, Losgehzeit = dessen Abfahrt − `schulweg`. Danach („Im Bus 603 …“)
+zählt er bis zur Abfahrt des 612. Die Karte zeigt nur den 612.
+
 ## Busposition (`position`)
 
 Für die aktuelle Zeit `t`:
@@ -144,6 +173,7 @@ knapp = e.ab − (gehzeit + fussVor)              los…knapp: "Jetzt losgehen!"
 ```
 
 **Heimweg:** `los = e.ab − (schulweg + fussVor)`, zu Hause = Ankunft + gehzeit + fussNach.
+Mit Anschlussbus: `los = Abfahrt Anschluss − schulweg`.
 
 **Richtung:** vor 11 Uhr „Zur Schule“, sonst „Nach Hause“. Eine eigene Wahl wird in
 `localStorage` (`richtung`) für 45 Minuten gemerkt.
@@ -195,7 +225,8 @@ knapp = e.ab − (gehzeit + fussVor)              los…knapp: "Jetzt losgehen!"
   ```
 
 - Getestete Zustände (Mo 16.11.2026): Anfahrt ab Glashütten, „Jetzt losgehen!“, Bus unterwegs
-  mit Restzahl der Halte, Heimweg direkt ab Dörfli, Heimweg mit Fussweg zum Bahnhof, Dunkelmodus.
+  mit Restzahl der Halte, Heimweg direkt ab Dörfli, Heimweg mit Umsteigen am Bahnhof (12:10, 12:25), Schulweg mit
+  Umsteigen (06:05, 06:24), Dunkelmodus.
 
 ## Bekannte Grenzen
 

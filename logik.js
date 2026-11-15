@@ -145,6 +145,60 @@
     return fahrten.sort((a, b) => a.einstieg.abPlan - b.einstieg.abPlan);
   }
 
+  // ---- Umsteigen -------------------------------------------------------------------
+
+  /** Fahrt ohne Umsteigen zwischen den gewuenschten Haltestellen? */
+  function istDirekt(f) { return !f.fussVor && !f.fussNach; }
+
+  /** Wo umgestiegen werden muss: der Halt, an dem der 612 beginnt bzw. endet. null = direkt. */
+  function umsteigeHalt(f) {
+    if (f.fussVor) return { seite: "vor", id: f.einstieg.id, name: f.einstieg.name };
+    if (f.fussNach) return { seite: "nach", id: f.ausstieg.id, name: f.ausstieg.name };
+    return null;
+  }
+
+  /** Direkte Busse (jede Linie) aus einer connections-Antwort, Zeiten in ms mit Verspaetung. */
+  function anschlussBusse(daten, vonId, nachId) {
+    const aus = [];
+    for (const c of (daten && daten.connections) || []) {
+      const s = c.sections || [];
+      // nur echte Busfahrten ohne Fussweg am Anfang oder Ende
+      if (c.transfers !== 0 || s.length !== 1 || !s[0].journey) continue;
+      const d = s[0].departure || {}, a = s[0].arrival || {};
+      if ((d.station || {}).id !== vonId || (a.station || {}).id !== nachId) continue;
+      if (!d.departureTimestamp || !a.arrivalTimestamp) continue;
+      const vAb = d.delay, vAn = a.delay !== null && a.delay !== undefined ? a.delay : vAb;
+      const echtzeit = (vAb !== null && vAb !== undefined) || (a.delay !== null && a.delay !== undefined);
+      aus.push({
+        linie: String(s[0].journey.number || s[0].journey.name || ""),
+        abPlan: d.departureTimestamp * 1000, anPlan: a.arrivalTimestamp * 1000,
+        ab: (d.departureTimestamp + (vAb || 0) * 60) * 1000,
+        an: (a.arrivalTimestamp + (vAn || 0) * 60) * 1000,
+        echtzeit,
+      });
+    }
+    return aus.sort((x, y) => x.abPlan - y.abPlan);
+  }
+
+  /** Passenden Anschlussbus fuer eine Fahrt mit Umsteigen suchen.
+   *  vor:  letzter Bus, der genug frueh beim 612 ist (zum Umsteigen).
+   *  nach: erster Bus nach der Ankunft des 612.
+   *  Gibt null, wenn keiner passt; dann bleibt nur der Fussweg. */
+  function passenderAnschluss(f, busse, umsteigeMin, maxWarteMin) {
+    const halt = umsteigeHalt(f);
+    if (!halt) return null;
+    const um = (umsteigeMin || 0) * 60000, max = (maxWarteMin || 30) * 60000;
+    if (halt.seite === "vor") {
+      const bis = f.einstieg.ab - um;
+      const passt = busse.filter(b => b.an <= bis && f.einstieg.ab - b.an <= max);
+      const b = passt[passt.length - 1];
+      return b ? Object.assign({ seite: "vor", halt: halt.name, warte: Math.round((f.einstieg.ab - b.an) / 60000) }, b) : null;
+    }
+    const ab = f.ausstieg.an + um;
+    const b = busse.find(x => x.ab >= ab && x.ab - f.ausstieg.an <= max);
+    return b ? Object.assign({ seite: "nach", halt: halt.name, warte: Math.round((b.ab - f.ausstieg.an) / 60000) }, b) : null;
+  }
+
   // ---- Position ------------------------------------------------------------------
 
   function abstand(a, b) {   // Meter, genuegt fuer kurze Strecken
@@ -205,7 +259,8 @@
   }
 
   const api = { verbindungsUrl, fahrtenDerLinie, haltestellen, fahrtenBauen, position,
-                punktAufLinie, teilstueck, auswahl, vorgabe, hatEchtzeit };
+                punktAufLinie, teilstueck, auswahl, vorgabe, hatEchtzeit,
+                istDirekt, umsteigeHalt, anschlussBusse, passenderAnschluss };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.Logik = api;
 })(this);

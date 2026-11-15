@@ -48,9 +48,22 @@ Losgehzeit = Abfahrt mit Verspätung − Gehzeit (5 Min.) − Puffer (2 Min.).
 
 **Heimweg (Nach Hause)**
 - „Zu Hause ca. 12:49“: Ankunft in Riken plus Gehzeit.
-- Manche Mittagsbusse fahren nicht ab Sennhof-Dörfli, sondern erst ab **Rothrist Bahnhof**.
-  Die App sagt dann zum Beispiel: „Bus fährt ab Rothrist Bahnhof: 12 Min. zu Fuss,
-  los um 12:20“. Ab dieser Zeit erscheint grün „Jetzt los zur Haltestelle …!“.
+
+**Direkt oder umsteigen**
+
+Viele 612er fahren nicht bis Sennhof-Dörfli, sondern beginnen oder enden am **Rothrist Bahnhof**.
+Bei jeder Fahrt steht deshalb ein Etikett:
+
+| Etikett | Bedeutung |
+|---|---|
+| direkt (grün) | der 612 fährt durch, kein Umsteigen |
+| umsteigen (orange) | in Rothrist Bahnhof umsteigen, auf den Bus 603/606 von oder nach Sennhof-Dörfli |
+| mit Fussweg (orange) | kein passender Anschlussbus gefunden, zu Fuss zwischen Dörfli und Bahnhof (ca. 12 Min.) |
+
+Beim Umsteigen zeigt eine orange umrandete Zeile den Anschluss, zum Beispiel
+„Umsteigen in Rothrist Bahnhof: Bus 603 ab Sennhof-Dörfli 12:23, an 12:27 → Bus 612 ab 12:35“.
+Auf dem Heimweg zählt die grosse Anzeige dann zuerst bis zur Abfahrt des 603. Die Zeiten
+„ab … · an …“ gelten für die ganze Reise. Die Bus-Knöpfe zeigen ebenfalls „direkt“ oder „umsteigen“.
 
 **Verspätung**
 
@@ -117,6 +130,7 @@ Alle Einstellungen stehen oben in [`app.js`](app.js) im Objekt `CFG`:
 | `richtungen.*.von/nach` | Haltestellen-IDs | Einstieg und Ausstieg je Richtung |
 | `richtungen.schule.vorlauf` | 8502388 | Linienanfang Glashütten, Kirche: damit man den Bus schon kommen sieht |
 | `takt.nah` / `takt.fern` | 30 s / 5 Min. | Abfrageintervall mit / ohne baldigen Bus |
+| `umsteigen.min` / `umsteigen.maxWarte` | 2 / 30 | Minuten zum Umsteigen in Rothrist Bahnhof (mindestens / höchstens warten) |
 
 Haltestellen-IDs findet man so:
 `https://transport.opendata.ch/v1/locations?query=Riken%20Neustadt`
@@ -143,7 +157,9 @@ auch am Wochenende oder abends testen:
 | `?zeit=2026-11-16T06:45` | Morgen, Bus noch weit weg, „Losgehen in … Min.“ |
 | `?zeit=2026-11-16T06:57` | „Jetzt losgehen!“, Bus kurz vor Riken |
 | `?zeit=2026-11-16T07:11` | Bus 07:03 unterwegs (Knopf „unterwegs“ antippen) |
-| `?zeit=2026-11-16T12:05` | Heimweg mit Fussweg zum Bahnhof Rothrist |
+| `?zeit=2026-11-16T06:05` | Schulweg mit Umsteigen in Rothrist Bahnhof |
+| `?zeit=2026-11-16T12:10` | Heimweg mit Umsteigen: zuerst Bus 603 zum Bahnhof |
+| `?zeit=2026-11-16T14:50` | Heimweg direkt |
 
 Das Datum muss ein Schultag mit Fahrplandaten sein (der Fahrplan ist rund ein Jahr im Voraus abrufbar).
 
@@ -161,7 +177,7 @@ dazwischen). Ergebnis: `strecke.js`.
 werden: Der Service Worker holt die neue Version im Hintergrund, sie erscheint ab dem
 übernächsten Öffnen. Damit eine Änderung schon beim nächsten Öffnen komplett da ist, oder
 wenn Dateien dazukommen oder wegfallen, die Liste `HUELLE` in [`sw.js`](sw.js) anpassen und
-`CACHE` hochzählen (z.B. `schulbus-v3`). Beim lokalen Testen in den Entwicklerwerkzeugen
+`CACHE` hochzählen (z.B. `schulbus-v4`). Beim lokalen Testen in den Entwicklerwerkzeugen
 „Update on reload“ einschalten oder zweimal neu laden.
 
 ## Veröffentlichen
