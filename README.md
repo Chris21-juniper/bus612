@@ -32,7 +32,9 @@ Wie die App intern funktioniert (Abfragen, Positionsberechnung, Sonderfälle), s
 ## Was die App zeigt
 
 **Grosse Minutenanzeige**
-- Bevor der Bus kommt: Minuten, bis er an der Einstiegshaltestelle abfährt.
+- Bevor der Bus kommt: Minuten, bis er an der Einstiegshaltestelle abfährt. Darunter steht
+  die Abfahrtszeit dort (z.B. „Abfahrt Riken Neustadt 07:03“, mit Verspätung) und, sobald der
+  Bus unterwegs ist, wo er gerade ist und wie viele Halte er noch braucht.
 - Im Bus: Minuten bis zur Ankunft am Ziel und die Zahl der restlichen Halte.
 - Bei weniger als einer Minute steht „jetzt“, bei mehr als zwei Stunden die Uhrzeit.
 

@@ -1,5 +1,5 @@
 // App-Huelle offline verfuegbar; Busdaten und Kartenkacheln immer frisch aus dem Netz.
-const CACHE = "schulbus-v4";
+const CACHE = "schulbus-v5";
 const HUELLE = ["./", "index.html", "style.css", "app.js", "logik.js", "strecke.js",
                 "lib/leaflet.js", "lib/leaflet.css", "manifest.webmanifest",
                 "icons/icon-180.png", "icons/icon-192.png"];

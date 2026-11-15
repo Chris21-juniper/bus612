@@ -348,16 +348,19 @@ function zeigeZahl(ziel) {
   $("cd-einheit").textContent = "Min.";
 }
 
+// "Riken AG, Neustadt" -> "Riken Neustadt", "Rothrist, Bahnhof" -> "Rothrist Bahnhof"
+const haltName = n => n.replace(" AG,", "").replace(",", "");
+
+/** Zuerst immer die Abfahrt am eigenen Halt, dahinter wo der Bus gerade ist.
+ *  (Der Linienanfang, z.B. Glashuetten, interessiert nicht.) */
 function anfahrtText(f, pos) {
+  const abfahrt = `Abfahrt ${haltName(f.einstieg.name)} ${uhr(f.einstieg.ab)}`;
   const halte = f.ei - pos.index;     // Halte bis zum Einstieg (inkl. Einstieg)
-  if (pos.zustand === "start") {
-    return f.mitAnfahrt ? `Bus startet ${uhr(f.stops[0].ab)} in ${kurzName(f.stops[0].name)}`
-                        : `bis der Bus in ${kurzName(f.einstieg.name)} abfährt`;
-  }
-  if (pos.zustand === "halt" && pos.index === f.ei) return `Bus steht in ${kurzName(f.einstieg.name)}`;
-  if (pos.zustand === "fahrt" && halte <= 1) return "Bus kommt gleich!";
+  if (pos.zustand === "start") return abfahrt;
+  if (pos.zustand === "halt" && pos.index === f.ei) return `${abfahrt} · Bus steht schon da`;
+  if (pos.zustand === "fahrt" && halte <= 1) return `${abfahrt} · Bus kommt gleich!`;
   const wo = pos.zustand === "fahrt" ? "nach" : "in";
-  return `Bus ${wo} ${kurzName(f.stops[pos.index].name)} · noch ${halte} Halt${halte === 1 ? "" : "e"}`;
+  return `${abfahrt} · Bus ${wo} ${kurzName(f.stops[pos.index].name)}, noch ${halte} Halt${halte === 1 ? "" : "e"}`;
 }
 
 function zeichneAuswahl(aktiv, jetzt) {
